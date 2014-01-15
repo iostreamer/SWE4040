@@ -1,4 +1,4 @@
-int incomingByte = 0;   // for incoming serial data
+char incomingByte = 0;   // for incoming serial data
 void setup() {
   Serial.begin(9600);     // opens serial port, sets data rate to 9600 bps
   Serial1.begin(9600);
@@ -15,8 +15,8 @@ void loop() {
     incomingByte = Serial.read();
 
     // say what you got:
-    Serial1.print((char)incomingByte);
-    Serial.print((char)incomingByte);
+    Serial1.println(incomingByte);
+    Serial.println(incomingByte);
     
 
   }
@@ -29,7 +29,7 @@ void loop() {
     incomingByte = Serial1.read();
 
     // say what you got:
-    Serial.print((char)incomingByte);
+    Serial.println(incomingByte);
     
 
   }

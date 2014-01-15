@@ -25,4 +25,34 @@
         android:layout_marginTop="27dp"
         android:text="@string/btStatus" />
 
+    <EditText
+        android:id="@+id/msgField"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/btStatusTxt"
+        android:layout_below="@+id/btStatusTxt"
+        android:layout_marginTop="25dp"
+        android:ems="10" />
+
+    <Button
+        android:id="@+id/sendButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/msgField"
+        android:layout_below="@+id/msgField"
+        android:onClick="sendMessage"
+        android:text="Send?????" />
+
+    <EditText
+        android:id="@+id/recieveField"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/sendButton"
+        android:layout_centerVertical="true"
+        android:ems="10"
+        android:inputType="textMultiLine" >
+
+        <requestFocus />
+    </EditText>
+
 </RelativeLayout>

@@ -3,18 +3,6 @@ void setup() {
   Serial.begin(9600);     // opens serial port, sets data rate to 9600 bps
   Serial1.begin(9600);
   
-  Serial.println("Configuring BT Module...");
-  
-  Serial1.print("AT&F\r");
-  delay(2000);
-  Serial1.print("AT+BTMODE,3\r");
-  delay(2000);
-  Serial1.print("AT+UARTCONFIG,9600,N,1,0\r");
-  delay(2000);
-  Serial1.print("ATZ\r");
-  
-  Serial.println("Module Configured");
-  
 
 }
 

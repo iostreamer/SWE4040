@@ -3,16 +3,21 @@
  Written by Philippe Leger
  Winter 2014
  */
-
+#include <EEPROM.h>
 byte byteRead; //Incoming data from Android Application
 long previousMillis = 0; //Used for timing of tasks without using delay() function
-long interval = 2000; //Set task interval to 2 seconds
+long interval = 5000; //Set task interval to 5 seconds
+char pin[4]; //Pin code for BT module
 
 void setup(){
   // opens serial port, sets data rate to 9600 bps
   Serial.begin(9600);     // To PC (via USB)
   Serial1.begin(9600);    // Bluetooth Module port
+  setUpBT();
   
+}
+
+void setUpBT(void){
   //Configure BT Module
   Serial.println("Configuring BT Module...");
   
@@ -22,31 +27,34 @@ void setup(){
   delay(2000);
   Serial1.print("AT+UARTCONFIG,9600,N,1,0\r");
   delay(2000);
+  Serial1.print("AT+BTNAME=\"Back-Off-4040\"\r");
+  delay(2000);
   Serial1.print("ATZ\r");
   
   Serial.println("Module Configured");
+  
 }
-
-void getPw() { //in progress
- char in;
- char pw[17] = {0};
- int pwloc = 0;
- delay(10);
- while (!Serial1.available()); 
- while((in = Serial1.read()) != '&') {
-    pw[pwloc++] = in;
-    if (pwloc >= 16)
-      break;  
-   while (!Serial1.available()); 
- }
- String rs = String("AT+whatever" + pw);
- }
+//
+//void getPw() { //in progress
+// char in;
+// char pw[17] = {0};
+// int pwloc = 0;
+// delay(10);
+// while (!Serial1.available()); 
+// while((in = Serial1.read()) != '&') {
+//    pw[pwloc++] = in;
+//    if (pwloc >= 16)
+//      break;  
+//   while (!Serial1.available()); 
+// }
+// String rs = String("AT+whatever" + pw);
+// }
 
 void androidReceive(void){
 
   delay(10);
   byteRead = Serial1.read(); //Read byte from Android Application
-  int distance, Speed, sd;
+  int distance, Speed, sd, i=0;
   switch (byteRead){
   case 'D': //"D" for distance measurment request
     distance = getDistance();
@@ -59,6 +67,29 @@ void androidReceive(void){
     Serial1.print(distance);
     break;
     
+  case 'F': //"F" for current safe following distance
+    sd = getSafeDistance(); 
+    // Send the value to the Serial Monitor
+    Serial.print("The current safe following distance for the vehicle behind is ");
+    Serial.print(sd);
+    Serial.println(" meters.");
+
+    // Send the distance value to the Android Application
+    Serial1.print(sd);
+    break;
+    
+  case 'P': //"P" for new pin code
+    for(i=0;i<4;i++){
+      pin[i] = EEPROM.read(i);      
+    }
+    
+    Serial.print("Setting BT module Pin code to \"");
+    Serial.print(pin);
+    Serial.println("\".");
+    
+    Serial1.println(pin);
+    break;  
+    
   case 'S': //"S" for current speed
     Speed = getSpeed();  
     // Send the value to the Serial Monitor
@@ -70,16 +101,14 @@ void androidReceive(void){
     Serial1.print(Speed);
     break;
     
-  case 'F': //"F" for current safe following distance
-    sd = getSafeDistance(); 
-    // Send the value to the Serial Monitor
-    Serial.print("The current safe following distance for the vehicle behind is ");
-    Serial.print(sd);
-    Serial.println(" meters.");
-
-    // Send the distance value to the Android Application
-    Serial1.print(sd);
+  case 'T': //"T" for terminate BlueTooth connection
+    
+    // Send the terminate command to the BT module
+    Serial1.print("+++\r");
+    
     break;
+    
+  
   }
 }
 

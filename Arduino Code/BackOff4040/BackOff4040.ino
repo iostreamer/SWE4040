@@ -39,19 +39,21 @@ void setUpBT(void){
       pin[i] = EEPROM.read(i);      
     }
   
-  Serial1.print("AT&F\r");
+  Serial1.print("AT&F\r"); //Factory reset
   delay(2000);
-  Serial1.print("AT+BTMODE,3\r");
+  Serial1.print("AT+BTMODE,3\r"); //Mode 3
   delay(2000);
-  Serial1.print("AT+UARTCONFIG,9600,N,1,0\r");
+  Serial1.print("AT+UARTCONFIG,9600,N,1,0\r"); //9600 Baud, N parity, 1 stop bit, no hardware handshaking
   delay(2000);
   Serial1.print("AT+BTNAME=\"Back-Off-4040\"\r");
   delay(2000);
-  Serial1.print("AT+BTKEY=\"");
+  Serial1.print("AT+BTSEC,1,0"); //Set Authentication ON and encryption OFF
+  delay(2000);
+  Serial1.print("AT+BTKEY=\""); //Set PIN Code
   Serial1.print(pin);
   Serial1.print("\"\r");
   delay(2000);
-  Serial1.print("ATZ\r");
+  Serial1.print("ATZ\r"); //software reset (powercycle) in order to apply changes
   
   Serial.println("Module Configured");
   

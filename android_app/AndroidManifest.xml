@@ -26,12 +26,28 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="ca.unb.backoffapp.DisplayMessageActivity"
+            android:name="ca.unb.backoffapp.DeviceManagerActivity"
             android:label="@string/title_activity_display_message"
-            android:parentActivityName="ca.unb.BackoffApp.MainActivity" >
+            android:parentActivityName="ca.unb.backoffapp.MainActivity" >
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="ca.unb.BackoffApp.MainActivity" />
+        </activity>
+        <activity
+            android:name="ca.unb.backoffapp.MessageListActivity"
+            android:label="@string/title_message_list"
+            android:parentActivityName="ca.unb.backoffapp.DeviceManagerActivity" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="ca.unb.backoffapp.DeviceManagerActivity" />
+        </activity>
+        <activity
+            android:name="ca.unb.backoffapp.MessageDetailActivity"
+            android:label="@string/title_message_detail"
+            android:parentActivityName=".MessageListActivity" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".MessageListActivity" />
         </activity>
     </application>
 

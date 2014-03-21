@@ -3,8 +3,16 @@
 
     <string name="app_name">BackoffApp</string>
     <string name="action_settings">Settings</string>
-    <string name="hello_world">Hello world!</string>
+    <string name="title_top">Welcome to the BackOff Control App!</string>
     <string name="btStatus">Bluetooth Status: </string>
-    <string name="title_activity_display_message">msg</string>
+    <string name="title_activity_display_message">Main Menu</string>
+    <string name="pair_button">PAIR_BUTTON</string>
+    <string name="pairstatus_bad">Device not found, tap to search.</string>
+    <string name="pairstatus_search">Searching for device&#8230;</string>
+    <string name="pairstatus_found">OK! Device paired!</string>
+    <string name="launchbutton">Manage Device</string>
+    <string name="test">THIS IS A TEST OF THE EMERGENCY BROADCAST SYSTEM.</string>
+    <string name="title_message_list">Messages</string>
+    <string name="title_message_detail">Message Detail</string>
 
 </resources>

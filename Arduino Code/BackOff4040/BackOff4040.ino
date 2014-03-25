@@ -8,25 +8,18 @@
 #include <LiquidCrystal_I2C.h>
 
 byte byteRead; //Incoming data from Android Application
-long previousMillis = millis(); //Used for timing of tasks without using delay() function
-long previousMillisScroll = 0; //Used for timing of tasks without using delay() function
+long previousMillis = 0; //Used for timing of tasks without using delay() function
 long interval = 2000; //Set task interval in milliseconds
-long intervalScroll = 350; //Set task interval in milliseconds
 char pin[4]; //Pin code for BT module
 const int pingPin = 53; //Digital pin used for distance sensor (range 2-300 cm)
 const int buttonPin = 52;     // the number of the pushbutton pin
 LiquidCrystal_I2C lcd(0x20,16,2);  // set the LCD address to 0x20(Cooperate with 3 short circuit caps) for a 16 chars and 2 line display
-boolean OBDflag = false;
-//String backoffMessage = " ";
-//int msgWidth = 16;
-//int msgoffset = 0;
 
 void setup(){
   // opens serial port, sets data rate to 9600 bps
   Serial.begin(9600);     // To PC (via USB)
   Serial1.begin(9600);    // Bluetooth Module port
   setUpBT();
-  obdConnect();
   // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
   
@@ -39,7 +32,7 @@ void setup(){
 void setUpBT(void){
   
   //Configure BT Module
-  Serial.println("Configuring BT Modules...");
+  Serial.println("Configuring BT Module...");
   
   //Get pin code from EEPROM
   for(int i=0;i<4;i++){
@@ -47,15 +40,12 @@ void setUpBT(void){
     }
   
   Serial1.print("AT&F\r"); //Factory reset
-  Serial2.print("AT&F\r");
   delay(2000);
   Serial1.print("AT+BTMODE,3\r"); //Mode 3
   delay(2000);
   Serial1.print("AT+UARTCONFIG,9600,N,1,0\r"); //9600 Baud, N parity, 1 stop bit, no hardware handshaking
-  Serial2.print("AT+UARTCONFIG,9600,N,1,0\r"); //9600 Baud, N parity, 1 stop bit, no hardware handshaking
   delay(2000);
-  Serial1.print("AT+BTNAME=\"Back-Off-4040-Mobile\"\r");
-  Serial2.print("AT+BTNAME=\"Back-Off-4040-OBD\"\r");
+  Serial1.print("AT+BTNAME=\"Back-Off-4040\"\r");
   delay(2000);
   Serial1.print("AT+BTSEC,1,0"); //Set Authentication ON and encryption OFF
   delay(2000);
@@ -64,72 +54,11 @@ void setUpBT(void){
   Serial1.print("\"\r");
   delay(2000);
   Serial1.print("ATZ\r"); //software reset (powercycle) in order to apply changes
-  Serial2.print("ATZ\r"); //software reset (powercycle) in order to apply changes
   
-  Serial.println("Modules Configured");
+  Serial.println("Module Configured");
   
 }
 
-void obdConnect(void){
-  Serial.println("Connecting to OBD");
- 
-  Serial2.print("ATDAABBCC112233\r");
-  waitForOBDConfirmation();
-  delay(2000); 
-}
-
-void waitForOBDConfirmation() {
-  delay(2000);
-  int i = 10000; //check some number of times
-  Serial.println("Attempting OBD Connection");
-  while (i--) {
-    if (Serial1.available() > 0) {
-      
-      // read the incoming byte:
-      byteRead = Serial1.read();
-      Serial.print((char)byteRead);
-      if (byteRead == 'C') {
-        Serial.println("Connection success");
-        Serial1.print("AT Z\r");
-        delay(2000);
-        Serial1.print("AT SP 0\r");
-        int i;
-  
-        for (i = 0; i < 1000; i++) {
-        sendReceive(); 
-        }
-      return;
-      }
-    }
-    
-   }
-   Serial.println("No connection detected");
-}
-
-  
-void sendReceive() {
-  //Send
-  if (Serial.available() > 0) {
-    // read the incoming byte:
-    byteRead = Serial.read();
-
-    // say what you got:
-    Serial1.print((char)byteRead);
-    Serial.print((char)byteRead);
-  }
-
-  // Receive 
-  if (Serial1.available() > 0) {
-    
-    // read the incoming byte:
-    byteRead = Serial1.read();
-
-    // say what you got:
-    //Serial.write(byteRead);
-    Serial.print((char)byteRead);
-  }
-}
-  
 void androidReceive(void){
 
   delay(10);
@@ -203,10 +132,16 @@ void androidReceive(void){
   }
 }
 
+
+
 int getDistance(void){
   //Replaced with ping ultrasonic sensor as of Feb 9 2014. 
   // Get the distance of the car behind the user in meters
-   
+  // Note that currently the sensor is a potentiometer and does not actually measure distance
+  //int sensorVal = map(analogRead(A0),0,1023,0,30); //Maps pot input to distance measurment of 0 to 30 meters
+  //return sensorVal;
+  
+  
   //Parts of the following code is provided and openly available from http://arduino.cc/en/Tutorial/ping
   long duration, cm, distance;
   
@@ -241,90 +176,8 @@ int getDistance(void){
 
 int getSpeed(void){
   //Ask the car OBD for the current speed in km/h
-  if(!OBDflag){ //Not connected to OBD, use test value
-    int Speed = 50; //Test value
-    return Speed;
-  }else{
-    //read from obd
-    char inputBuffer[16] = {0}; 
-    int cpos = 0;
-    boolean responseBegins = true;
-    Serial1.print("010D\r\n"); 
-    while (1) {
-      if (Serial1.available() > 0) {
-        byteRead = Serial1.read();
-        if (byteRead == '4') {
-          responseBegins = true; 
-        }
-        if (responseBegins) {
-          inputBuffer[cpos++] = (char)byteRead;
-        }
-        if (byteRead == '>') {
-          break; 
-        }
-      }
-    }
-    int Speed = ascii2int(&inputBuffer[6], 2);
-    for (cpos = 0; cpos < 16; cpos++) {
-     Serial.print(inputBuffer[cpos]); 
-    }
-    Serial.println();
-    Serial.println(Speed);
-    return(Speed);
-    }
-  
-}
-
-
-
-//void scrollText() {//does not work
-//    String msgpart;
-//  Serial.println("Enter scrolltxt");
-//  int strlen = backoffMessage.length();
-//  if (strlen <= msgWidth) {
-//    lcdShow(backoffMessage);
-//      Serial.println("Enter shortmsg");
-//  } else {
-//      Serial.println("Enter longmsg");
-//    int msgleft = strlen - msgoffset;
-//    Serial.println(msgleft);
-//    if (msgleft >= msgWidth) {
-//      Serial.println("Enter chop1");
-//      msgpart = backoffMessage.substring(msgoffset, msgoffset+msgWidth);
-//    } else {
-//      Serial.println("Enter chop2");
-//      msgpart = backoffMessage.substring(msgoffset, strlen);
-//      int remainder = strlen - msgoffset;
-//      msgpart += backoffMessage.substring(0, msgWidth-remainder);
-//    }
-//    
-//    Serial.println("exit chops");
-//  
-//    lcd.setCursor(0,1);
-//    lcd.print(backoffMessage);
-//    msgoffset++;
-//    if (msgoffset > strlen-1) {
-//       msgoffset = 0; 
-//    }
-//      Serial.println("Exit longmsg");
-//  }
-//}
-
-int ascii2int(char* string, int nDigit) {
-  int i = 0;
-  int retval = 0;
-  for (; i < nDigit; i++) {
-      char sval = string[i];
-      int hval = 0;
-      if (sval <= '9') {
-         hval = sval - '0'; 
-      } else {
-        hval = sval - 'A' + 10; 
-      }
-      int digitPos = nDigit - i - 1;
-      retval += hval << (4*digitPos);
-  }
-  return retval;
+  int Speed = 50; //Test value
+  return Speed;
 }
 
 int getSafeDistance(void){
@@ -333,16 +186,18 @@ int getSafeDistance(void){
   return safeDistance;
 }
 
-String backOffCheck(void){
+void backOffCheck(void){
   //print to serial monitor
-  Serial.print("We are ");
+  Serial.print("You are ");
   Serial.print(getDistance());
-  Serial.println(" m apart");
+  Serial.println(" meters behind me.");
   //print to lcd
+  lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("We are ");
+  lcd.print("You are ");
   lcd.print(getDistance());
-  lcd.print("m apart ");
+  lcd.setCursor(0,1);
+  lcd.print("meters behind me.");
   
   //Compare current speed with distance of the following car and display appropriate message
   if(getDistance() < getSafeDistance()){
@@ -354,16 +209,14 @@ String backOffCheck(void){
     Serial.println(" meters.");
     
     //print to lcd
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Back off to ");
+    lcd.print(getSafeDistance());
     lcd.setCursor(0,1);
-    lcd.print("Please Back Off");
-    //backoffMessage = "  Please back off  ";
-    
-  }else{
-    lcd.setCursor(0,1);
-    lcd.print("Have a nice day");
-    //backoffMessage = "  Have a nice day  ";
+    lcd.print("meters behind me.");
+  }
  }
-}
 
 void resetPin(void){
   Serial.println("Resetting pin code to \"1234\"");
@@ -396,19 +249,7 @@ void loop(){
     backOffCheck(); //Run back off check
     
   }//End intervaled tasks   
-  
-  //Display scrolling
-//  unsigned long currentMillisScroll = millis();
-//  if(currentMillisScroll - previousMillisScroll > intervalScroll){
-//    previousMillisScroll = currentMillisScroll;
-//    
-//    //Run tasks
-//    scrollText();
-//    Serial.println("Scrolling display!");
-//    
-//  }//End intervaled tasks
-  
-  
+
 }
 
 

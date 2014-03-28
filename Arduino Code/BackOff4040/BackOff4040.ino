@@ -14,11 +14,13 @@ char pin[4]; //Pin code for BT module
 const int pingPin = 53; //Digital pin used for distance sensor (range 2-300 cm)
 const int buttonPin = 52;     // the number of the pushbutton pin
 LiquidCrystal_I2C lcd(0x20,16,2);  // set the LCD address to 0x20(Cooperate with 3 short circuit caps) for a 16 chars and 2 line display
+boolean OBDflag = false;
 
 void setup(){
   // opens serial port, sets data rate to 9600 bps
   Serial.begin(9600);     // To PC (via USB)
   Serial1.begin(9600);    // Bluetooth Module port
+  Serial2.begin(9600);    // Bluetooth Module port
   
   // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
@@ -34,7 +36,7 @@ void setup(){
 void setUpBT(void){
   
   //Configure BT Module
-  Serial.println("Configuring BT Module...");
+  Serial.println("Configuring BT Modules...");
   
   //Get pin code from EEPROM
   for(int i=0;i<4;i++){
@@ -42,12 +44,16 @@ void setUpBT(void){
     }
   
   Serial1.print("AT&F\r"); //Factory reset
+  Serial2.print("AT&F\r");
   delay(2000);
   Serial1.print("AT+BTMODE,3\r"); //Mode 3
   delay(2000);
   Serial1.print("AT+UARTCONFIG,9600,N,1,0\r"); //9600 Baud, N parity, 1 stop bit, no hardware handshaking
+  Serial2.print("AT+UARTCONFIG,9600,N,1,0\r"); //9600 Baud, N parity, 1 stop bit, no hardware handshaking
   delay(2000);
   Serial1.print("AT+BTNAME=\"Back-Off-4040\"\r");
+  Serial2.print("AT+BTNAME=\"Back-Off-4040-OBD\"\r");
+
   delay(2000);
   Serial1.print("AT+BTSEC,1,0"); //Set Authentication ON and encryption OFF
   delay(2000);
@@ -56,10 +62,49 @@ void setUpBT(void){
   Serial1.print("\"\r");
   delay(2000);
   Serial1.print("ATZ\r"); //software reset (powercycle) in order to apply changes
+  Serial2.print("ATZ\r"); //software reset (powercycle) in order to apply changes
   
-  Serial.println("Module Configured");
+  Serial.println("Modules Configured");
   
 }
+
+void obdConnect(void){
+  Serial.println("Connecting to OBD");
+ 
+  Serial2.print("ATDAABBCC112233\r");
+  waitForOBDConfirmation();
+  delay(2000); 
+}
+
+
+void waitForOBDConfirmation() {
+  delay(2000);
+  int i = 10000; //check some number of times
+  Serial.println("Attempting OBD Connection");
+  while (i--) {
+    if (Serial1.available() > 0) {
+      
+      // read the incoming byte:
+      byteRead = Serial1.read();
+      Serial.print((char)byteRead);
+      if (byteRead == 'C') {
+        Serial.println("Connection success");
+        Serial1.print("AT Z\r");
+        delay(2000);
+        Serial1.print("AT SP 0\r");
+        int i;
+  
+//        for (i = 0; i < 1000; i++) {
+//        sendReceive(); 
+//        }
+      return;
+      }
+    }
+    
+   }
+   Serial.println("No connection detected");
+}
+
 
 void androidReceive(void){
 
@@ -170,13 +215,6 @@ void androidReceive(void){
 
 
 int getDistance(void){
-  //Replaced with ping ultrasonic sensor as of Feb 9 2014. 
-  // Get the distance of the car behind the user in meters
-  // Note that currently the sensor is a potentiometer and does not actually measure distance
-  //int sensorVal = map(analogRead(A0),0,1023,0,30); //Maps pot input to distance measurment of 0 to 30 meters
-  //return sensorVal;
-  
-  
   //Parts of the following code is provided and openly available from http://arduino.cc/en/Tutorial/ping
   long duration, cm, distance;
   
@@ -209,10 +247,65 @@ int getDistance(void){
   return(distance);
 } 
 
+//int getSpeed(void){
+//  //Ask the car OBD for the current speed in km/h
+//  int Speed = 50; //Test value
+//  return Speed;
+//}
+
 int getSpeed(void){
   //Ask the car OBD for the current speed in km/h
-  int Speed = 50; //Test value
-  return Speed;
+  if(!OBDflag){ //Not connected to OBD, use test value
+    int Speed = 50; //Test value
+    return Speed;
+  }else{
+    //read from obd
+    char inputBuffer[16] = {0}; 
+    int cpos = 0;
+    boolean responseBegins = true;
+    Serial1.print("010D\r\n"); 
+    while (1) {
+      if (Serial1.available() > 0) {
+        byteRead = Serial1.read();
+        if (byteRead == '4') {
+          responseBegins = true; 
+        }
+        if (responseBegins) {
+          inputBuffer[cpos++] = (char)byteRead;
+        }
+        if (byteRead == '>') {
+          break; 
+        }
+      }
+    }
+    int Speed = ascii2int(&inputBuffer[6], 2);
+    for (cpos = 0; cpos < 16; cpos++) {
+     Serial.print(inputBuffer[cpos]); 
+    }
+    Serial.println();
+    Serial.println(Speed);
+    return(Speed);
+    }
+  
+}
+
+
+
+int ascii2int(char* string, int nDigit) {
+  int i = 0;
+  int retval = 0;
+  for (; i < nDigit; i++) {
+      char sval = string[i];
+      int hval = 0;
+      if (sval <= '9') {
+         hval = sval - '0'; 
+      } else {
+        hval = sval - 'A' + 10; 
+      }
+      int digitPos = nDigit - i - 1;
+      retval += hval << (4*digitPos);
+  }
+  return retval;
 }
 
 int getSafeDistance(void){
@@ -284,6 +377,8 @@ void configButton(void){
   } 
   
   resetMessages();
+  
+  obdConnect();
  
   Serial.println("Setup Complete");
   lcd.setCursor(0,0);

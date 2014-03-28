@@ -19,13 +19,15 @@ void setup(){
   // opens serial port, sets data rate to 9600 bps
   Serial.begin(9600);     // To PC (via USB)
   Serial1.begin(9600);    // Bluetooth Module port
-  setUpBT();
+  
   // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
   
   lcd.init();                      // initialize the lcd 
   lcd.backlight();
   lcd.home();
+  
+  Serial.println("System ready");
   
 }
 
@@ -85,6 +87,39 @@ void androidReceive(void){
 
     // Send the distance value to the Android Application
     Serial1.print(sd);
+    break;
+  
+  case 'M': //"M" for new custom message
+    byteRead = Serial1.read();
+    if(byteRead == 'B'){ //New "Back Off" message
+      Serial.print("New \"Back Off\" Message is ");
+      i = 10; //Starting location of "Back Off" message
+      while(Serial1.peek()){
+        if(i>49)
+          break;
+        byteRead = Serial1.read(); //Get next byte
+        Serial.print((char)byteRead);
+        EEPROM.write(i++, byteRead);
+        delay(4);
+      }
+      EEPROM.write(i, 0);
+      Serial.println("");
+      break;
+    }else if(byteRead == 'H'){ //New "Have a nice day" message
+      Serial.print("New \"Have a nice day\" Message is ");
+      i = 50; //Starting location of "Have a nice day" message
+      while(Serial1.peek()){
+        if(i>89)
+          break;
+        byteRead = Serial1.read(); //Get next byte
+        Serial.print((char)byteRead);
+        EEPROM.write(i++, byteRead);
+        delay(4);
+      }
+      EEPROM.write(i, 0);
+      Serial.println("");
+      break;  
+    }
     break;
     
   case 'N': //"N" for set new pin code in EEPROM. Must be followed by 4 digit pin code
@@ -187,17 +222,20 @@ int getSafeDistance(void){
 }
 
 void backOffCheck(void){
+  int i = 0;
+  char inbuf[17] = "               \0";
+  inbuf[16] = 0;
+    
   //print to serial monitor
-  Serial.print("You are ");
+  Serial.print("We are ");
   Serial.print(getDistance());
-  Serial.println(" meters behind me.");
+  Serial.println("m apart ");
   //print to lcd
-  lcd.clear();
+  
   lcd.setCursor(0,0);
-  lcd.print("You are ");
+  lcd.print("We are ");
   lcd.print(getDistance());
-  lcd.setCursor(0,1);
-  lcd.print("meters behind me.");
+  lcd.print("m apart ");
   
   //Compare current speed with distance of the following car and display appropriate message
   if(getDistance() < getSafeDistance()){
@@ -208,23 +246,63 @@ void backOffCheck(void){
     Serial.print(getSafeDistance());
     Serial.println(" meters.");
     
-    //print to lcd
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("Back off to ");
-    lcd.print(getSafeDistance());
+    //"Back Off" message
     lcd.setCursor(0,1);
-    lcd.print("meters behind me.");
+    i = 10;
+    while ((i < 26) && (byteRead = EEPROM.read(i++))) {
+       inbuf[i-11] = byteRead;
+    }
+    lcd.print(inbuf);
+    Serial.print(inbuf); Serial.print(".");
+    Serial.println("");
+    
+  }
+  else{
+    //"Have a nice day" message
+    lcd.setCursor(0,1);
+    i = 50;
+    while ((i < 66) && (byteRead = EEPROM.read(i++))) {
+       inbuf[i-51] = byteRead; 
+    }
+    lcd.print(inbuf);
+    Serial.print(inbuf); Serial.print(".");
+    Serial.println("");
   }
  }
 
-void resetPin(void){
+void configButton(void){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Configuring...");
+  setUpBT();
+  
+  //reset pin code
   Serial.println("Resetting pin code to \"1234\"");
   char c = '1';
   for(int i=0;i<4;i++){
     EEPROM.write(i,c++); 
   } 
-  delay(1500);
+  
+  resetMessages();
+ 
+  Serial.println("Setup Complete");
+  lcd.setCursor(0,0);
+  lcd.print("Setup Complete  ");
+   delay(1500);
+}
+
+void resetMessages(){
+  int i = 0;
+  char msg1[16] = "Please Back Off";
+  char msg2[16] = "Have a nice day";
+  
+  for(i=0;i<=16;i++){//Reset Back Off message
+    EEPROM.write(i+10,msg1[i]);  
+  }
+  for(i=0;i<=16;i++){//Reset Back Off message
+    EEPROM.write(i+50,msg2[i]);  
+  }
+    
 }
 
 void loop(){
@@ -232,12 +310,17 @@ void loop(){
   //incoming Android App data
   if(Serial1.available() > 0){
     byteRead = Serial1.read(); //Read byte from Android Application
-    if(byteRead == '$')//Check for "$" indicating a command is received
-      androidReceive(); 
+    if(byteRead == '$'){//Check for "$" indicating a command is received
+      Serial.println("Receiving Android Command");
+      androidReceive();
+    } 
+    else{
+      Serial.print((char)byteRead);
+    }  
   }
   
   if (digitalRead(buttonPin) == HIGH) {
-    resetPin();    
+    configButton();    
   }
 
   //The following code runs tasks only once every interval

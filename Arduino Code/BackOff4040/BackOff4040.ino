@@ -63,7 +63,7 @@ void setUpBT(void){
   delay(2000);
   Serial1.print("ATZ\r"); //software reset (powercycle) in order to apply changes
   Serial2.print("ATZ\r"); //software reset (powercycle) in order to apply changes
-  
+  delay(2000);
   Serial.println("Modules Configured");
   
 }
@@ -78,31 +78,56 @@ void obdConnect(void){
 
 
 void waitForOBDConfirmation() {
-  delay(2000);
+  delay(8000);
   int i = 10000; //check some number of times
   Serial.println("Attempting OBD Connection");
   while (i--) {
-    if (Serial1.available() > 0) {
+    if (Serial2.available() > 0) {
       
       // read the incoming byte:
-      byteRead = Serial1.read();
+      byteRead = Serial2.read();
       Serial.print((char)byteRead);
       if (byteRead == 'C') {
-        Serial.println("Connection success");
-        Serial1.print("AT Z\r");
+        OBDflag = 1;
+        Serial2.print("AT Z\r");
         delay(2000);
-        Serial1.print("AT SP 0\r");
-        int i;
-  
-//        for (i = 0; i < 1000; i++) {
-//        sendReceive(); 
-//        }
+        Serial2.print("AT SP 0\r");
+        delay(1000);
+        Serial2.print("01 00\r");
+        delay(5000);  
+        for (i = 0; i < 1000; i++) {
+        sendReceive(); 
+        }
+        Serial.println("Connection success");
       return;
       }
     }
     
    }
    Serial.println("No connection detected");
+}
+
+void sendReceive() {
+  //Send
+  if (Serial.available() > 0) {
+    // read the incoming byte:
+    byteRead = Serial.read();
+
+    // say what you got:
+    Serial2.print((char)byteRead);
+    Serial.print((char)byteRead);
+  }
+
+  // Receive 
+  if (Serial2.available() > 0) {
+    
+    // read the incoming byte:
+    byteRead = Serial2.read();
+
+    // say what you got:
+    //Serial.write(byteRead);
+    Serial.print((char)byteRead);
+  }
 }
 
 
@@ -260,13 +285,13 @@ int getSpeed(void){
     return Speed;
   }else{
     //read from obd
-    char inputBuffer[16] = {0}; 
+    char inputBuffer[46] = {0}; 
     int cpos = 0;
     boolean responseBegins = true;
-    Serial1.print("010D\r\n"); 
+    Serial2.print("010D\r\n"); 
     while (1) {
-      if (Serial1.available() > 0) {
-        byteRead = Serial1.read();
+      if (Serial2.available() > 0) {
+        byteRead = Serial2.read();
         if (byteRead == '4') {
           responseBegins = true; 
         }
@@ -278,15 +303,14 @@ int getSpeed(void){
         }
       }
     }
-    int Speed = ascii2int(&inputBuffer[6], 2);
+    int Speed = ascii2int(&inputBuffer[11], 2);
     for (cpos = 0; cpos < 16; cpos++) {
      Serial.print(inputBuffer[cpos]); 
     }
     Serial.println();
     Serial.println(Speed);
     return(Speed);
-    }
-  
+    }  
 }
 
 

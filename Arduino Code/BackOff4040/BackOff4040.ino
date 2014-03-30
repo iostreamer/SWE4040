@@ -1,8 +1,9 @@
-/*ECE4040Master
+/*BackOff4040
  This is the program for the arduino side of the group 2 project "Back off"
- Written by Philippe Leger
+ Written by Philippe Leger & Taeler Dixon
  Winter 2014
  */
+ 
 #include <EEPROM.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -69,6 +70,7 @@ void setUpBT(void){
 }
 
 void obdConnect(void){
+  OBDflag = false;
   Serial.println("Connecting to OBD");
  
   Serial2.print("ATDAABBCC112233\r");
@@ -88,7 +90,7 @@ void waitForOBDConfirmation() {
       byteRead = Serial2.read();
       Serial.print((char)byteRead);
       if (byteRead == 'C') {
-        OBDflag = 1;
+        OBDflag = true;
         Serial2.print("AT Z\r");
         delay(2000);
         Serial2.print("AT SP 0\r");
@@ -135,106 +137,139 @@ void androidReceive(void){
 
   delay(10);
   byteRead = Serial1.read(); //Read byte from Android Application
+  Serial1.print('<'); //Acknowledge command received
   int distance, Speed, sd, i=0;
   switch (byteRead){
-  case 'D': //"D" for distance measurment request
-    distance = getDistance();
-    // Send the value to the Serial Monitor
-    Serial.print("The car behind me is ");
-    Serial.print(distance);
-    Serial.println(" meters away.");
-
-    // Send the distance value to the Android Application
-    Serial1.print(distance);
-    break;
+    case 'C': //"C" for attempt recconect to OBD
+      obdConnect();
+      if(OBDflag){
+        Serial1.print("Success");  
+      }else{
+        Serial1.print("Failure");  
+      }
     
-  case 'F': //"F" for current safe following distance
-    sd = getSafeDistance(); 
-    // Send the value to the Serial Monitor
-    Serial.print("The current safe following distance for the vehicle behind is ");
-    Serial.print(sd);
-    Serial.println(" meters.");
-
-    // Send the distance value to the Android Application
-    Serial1.print(sd);
-    break;
+    case 'D': //"D" for distance measurment request
+      distance = getDistance();
+      // Send the value to the Serial Monitor
+      Serial.print("The car behind me is ");
+      Serial.print(distance);
+      Serial.println(" meters away.");
   
-  case 'M': //"M" for new custom message
-    byteRead = Serial1.read();
-    if(byteRead == 'B'){ //New "Back Off" message
-      Serial.print("New \"Back Off\" Message is ");
-      i = 10; //Starting location of "Back Off" message
-      while(Serial1.peek()){
-        if(i>49)
-          break;
-        byteRead = Serial1.read(); //Get next byte
-        Serial.print((char)byteRead);
-        EEPROM.write(i++, byteRead);
-        delay(4);
-      }
-      EEPROM.write(i, 0);
-      Serial.println("");
+      // Send the distance value to the Android Application
+      Serial1.print(distance);
+      
       break;
-    }else if(byteRead == 'H'){ //New "Have a nice day" message
-      Serial.print("New \"Have a nice day\" Message is ");
-      i = 50; //Starting location of "Have a nice day" message
-      while(Serial1.peek()){
-        if(i>89)
-          break;
-        byteRead = Serial1.read(); //Get next byte
-        Serial.print((char)byteRead);
-        EEPROM.write(i++, byteRead);
-        delay(4);
-      }
-      EEPROM.write(i, 0);
-      Serial.println("");
-      break;  
-    }
-    break;
-    
-  case 'N': //"N" for set new pin code in EEPROM. Must be followed by 4 digit pin code
-    if(Serial1.available()<4)
+      
+    case 'F': //"F" for current safe following distance
+      sd = getSafeDistance(); 
+      // Send the value to the Serial Monitor
+      Serial.print("The current safe following distance for the vehicle behind is ");
+      Serial.print(sd);
+      Serial.println(" meters.");
+  
+      // Send the distance value to the Android Application
+      Serial1.print(sd);
+      
       break;
     
-    for(i=0;i<4;i++){
+    case 'M': //"M" for new custom message
       byteRead = Serial1.read();
-      EEPROM.write(i,byteRead);
-    }   
-    
-    break;
-    
-  case 'P': //"P" for current pin code stored in EEPROM
-    for(i=0;i<4;i++){
-      pin[i] = EEPROM.read(i);      
-    }
-    
-    Serial.print("Current PIN code stored in EEPROM for BT module is \"");
-    Serial.print(pin);
-    Serial.println("\".");
-    
-    Serial1.println(pin);
-    break;  
-    
-  case 'S': //"S" for current speed
-    Speed = getSpeed();  
-    // Send the value to the Serial Monitor
-    Serial.print("This vehicle is going ");
-    Serial.print(Speed);
-    Serial.println(" km/h.");
-
-    // Send the distance value to the Android Application
-    Serial1.print(Speed);
-    break;
-    
-  case 'T': //"T" for terminate BlueTooth connection
-    
-    // Send the terminate command to the BT module
-    Serial1.print("+++\r");
-    
-    break;
-    
+      if(byteRead == 'B'){ //New "Back Off" message
+        Serial.print("New \"Back Off\" Message is ");
+        i = 10; //Starting location of "Back Off" message
+        while(Serial1.peek()){
+          if(i>49)
+            break;
+          byteRead = Serial1.read(); //Get next byte
+          Serial.print((char)byteRead);
+          EEPROM.write(i++, byteRead);
+          delay(4);
+        }
+        EEPROM.write(i, 0);
+        Serial.println("");
+        
+        break;
+      }else if(byteRead == 'H'){ //New "Have a nice day" message
+        Serial.print("New \"Have a nice day\" Message is ");
+        i = 50; //Starting location of "Have a nice day" message
+        while(Serial1.peek()){
+          if(i>89)
+            break;
+          byteRead = Serial1.read(); //Get next byte
+          Serial.print((char)byteRead);
+          EEPROM.write(i++, byteRead);
+          delay(4);
+        }
+        EEPROM.write(i, 0);
+        Serial.println("");
+        break;  
+      }
+      break;
+      
+    case 'N': //"N" for set new pin code in EEPROM. Must be followed by 4 digit pin code
+      if(Serial1.available()<4)
+        break;
+      
+      for(i=0;i<4;i++){
+        byteRead = Serial1.read();
+        EEPROM.write(i,byteRead);
+      }   
+      
+      break;
+      
+    case 'O': //"O" for OBDII command
+      if(OBDflag){ //Only if OBD connection is available
+        while(byteRead = Serial1.read()){ //Give OBD command to OBD until NULL character is found
+          Serial2.print(byteRead);   
+        }
+        Serial2.print("\r");
+              
+        while(!Serial2.available()){ //Wait for response from OBD
+        }
+        
+        while(byteRead = Serial2.read() != '>'){ //Give OBD response back to Android app
+          Serial1.print(byteRead);  
+        }
+        
+      }else{
+        Serial1.print("No OBDII");
+        Serial.println("No OBDII connection");
+      } 
+      break; 
+      
+    case 'P': //"P" for current pin code stored in EEPROM
+      for(i=0;i<4;i++){
+        pin[i] = EEPROM.read(i);      
+      }
+      
+      Serial.print("Current PIN code stored in EEPROM for BT module is \"");
+      Serial.print(pin);
+      Serial.println("\".");
+      
+      Serial1.println(pin);
+      break;  
+      
+    case 'S': //"S" for current speed
+      Speed = getSpeed();  
+      // Send the value to the Serial Monitor
+      Serial.print("This vehicle is going ");
+      Serial.print(Speed);
+      Serial.println(" km/h.");
   
+      // Send the distance value to the Android Application
+      Serial1.print(Speed);
+      break;
+      
+    case 'T': //"T" for terminate BlueTooth connection
+      
+      // Send the terminate command to the BT module
+      Serial1.print("+++\r");
+      
+      break;
+      
+    
   }
+  Serial1.print('>'); //End of command execution
 }
 
 
@@ -434,11 +469,11 @@ void loop(){
       androidReceive();
     } 
     else{
-      Serial.print((char)byteRead);
+      Serial.print((char)byteRead); //Print to serial monitor
     }  
   }
   
-  if (digitalRead(buttonPin) == HIGH) {
+  if (digitalRead(buttonPin) == HIGH) { //Check for button press
     configButton();    
   }
 

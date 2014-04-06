@@ -11,7 +11,7 @@
 byte byteRead; //Incoming data from Android Application
 long previousMillis = 0; //Used for timing of tasks without using delay() function
 long interval = 2000; //Set task interval in milliseconds
-char pin[4]; //Pin code for BT module
+char pin[5]; //Pin code for BT module
 const int pingPin = 53; //Digital pin used for distance sensor (range 2-300 cm)
 const int buttonPin = 52;     // the number of the pushbutton pin
 LiquidCrystal_I2C lcd(0x20,16,2);  // set the LCD address to 0x20(Cooperate with 3 short circuit caps) for a 16 chars and 2 line display
@@ -30,6 +30,8 @@ void setup(){
   lcd.backlight();
   lcd.home();
   
+  pin[4] = 0;
+  
   Serial.println("System ready");
   
 }
@@ -46,7 +48,7 @@ void setUpBT(void){
   
   Serial1.print("AT&F\r"); //Factory reset
   Serial2.print("AT&F\r");
-  delay(2000);
+  delay(3500);
   Serial1.print("AT+BTMODE,3\r"); //Mode 3
   delay(2000);
   Serial1.print("AT+UARTCONFIG,9600,N,1,0\r"); //9600 Baud, N parity, 1 stop bit, no hardware handshaking
@@ -61,6 +63,9 @@ void setUpBT(void){
   Serial1.print("AT+BTKEY=\""); //Set PIN Code
   Serial1.print(pin);
   Serial1.print("\"\r");
+  Serial.print("AT+BTKEY=\""); //Set PIN Code
+  Serial.print(pin);
+  Serial.print("\"\r");
   delay(2000);
   Serial1.print("ATZ\r"); //software reset (powercycle) in order to apply changes
   Serial2.print("ATZ\r"); //software reset (powercycle) in order to apply changes
@@ -134,10 +139,17 @@ void sendReceive() {
 
 
 void androidReceive(void){
-
+  
   delay(10);
+  boolean TerminateFlag = false;
   byteRead = Serial1.read(); //Read byte from Android Application
-  Serial1.print('<'); //Acknowledge command received
+  if(byteRead == 'N' || byteRead == 'T'){ //Do not print "<" if trying to terminate connection
+    TerminateFlag = true;
+  }
+  if(!TerminateFlag){
+    Serial1.print('<'); //Acknowledge command received
+  }
+  
   int distance, Speed, sd, i=0;
   switch (byteRead){
     case 'C': //"C" for attempt recconect to OBD
@@ -207,13 +219,22 @@ void androidReceive(void){
       break;
       
     case 'N': //"N" for set new pin code in EEPROM. Must be followed by 4 digit pin code
-      if(Serial1.available()<4)
-        break;
+      //if(Serial1.available()<4)
+      //  break;
       
       for(i=0;i<4;i++){
+        delay(10);
         byteRead = Serial1.read();
         EEPROM.write(i,byteRead);
       }   
+      
+      //Terminate BT connection 
+      Serial1.print("+++\r");
+      delay(1500);
+      Serial1.print("ATH\r");
+      delay(3000);
+      setUpBT();
+      delay(100);
       
       break;
       
@@ -246,7 +267,7 @@ void androidReceive(void){
       Serial.print(pin);
       Serial.println("\".");
       
-      Serial1.println(pin);
+      Serial1.print(pin);
       break;  
       
     case 'S': //"S" for current speed
@@ -264,12 +285,16 @@ void androidReceive(void){
       
       // Send the terminate command to the BT module
       Serial1.print("+++\r");
+      delay(1500);
+      Serial1.print("ATH\r");
       
       break;
       
     
   }
-  Serial1.print('>'); //End of command execution
+  if(!TerminateFlag){ //Do not print if trying to terminate connection
+    Serial1.print('>'); //End of command execution
+  }
 }
 
 
@@ -426,14 +451,16 @@ void configButton(void){
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Configuring...");
-  setUpBT();
   
   //reset pin code
   Serial.println("Resetting pin code to \"1234\"");
   char c = '1';
   for(int i=0;i<4;i++){
+    delay(10);
     EEPROM.write(i,c++); 
   } 
+  
+  setUpBT();
   
   resetMessages();
   
